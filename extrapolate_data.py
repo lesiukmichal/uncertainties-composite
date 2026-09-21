@@ -11,7 +11,7 @@ def read_dynamic_data(filename):
 
     with open(filename, 'r') as file:
         for line_number, line in enumerate(file, start=1):
-            columns = line.strip().split()
+            columns = line.split()
             if not columns:
                 continue
             try:
@@ -25,7 +25,7 @@ def read_dynamic_data(filename):
     padded_data = []
     for row in raw_data:
         missing_count = max_cols - len(row)
-        row.extend([np.nan] * missing_count)
+        row.extend([np.nan] * missing_count) # if empty cell is found add nan for it
         padded_data.append(row)
 
     return padded_data, max_cols
@@ -70,10 +70,19 @@ def calculate_extrapolants(data):
 
 
 def preprocess_extrapolants(filename):
+    """
+    Load and extrapolated data from file
+    Expected format of file is
+    L   method1  method2 ....
+    2    val      val
+    3    val      val
+    4    val      val
+    5    val      nan 
+    6    val      nan
+    , where val is either a value in specific basis or zero. At least 3 vals has to be non zero for each column 
+    to kickstart extrapolations. nan is either string "nan" or empty. L specifies the basis.
+    """
 
-    # Generate dynamic output filenames based on the input file
-
-    # 1 & 2: Load data and calculate extrapolants...
     data, total_columns = read_dynamic_data(filename)
     headers_raw = ["X"] + [f"Col {i}" for i in range(1, total_columns)]
     print("\n--- RAW DATA ---")

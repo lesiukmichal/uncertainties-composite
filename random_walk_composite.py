@@ -16,6 +16,23 @@ def generate_sample(extrapolants_table,n_samples):
     the two preceding values in that column.
     Does not modify the original table.
 
+	Example of extrapolants_table
+        2->3	    0.000000	    0.000000	    0.041282	    0.038259
+        3->4	    0.000000	    0.624616	    0.043507	    0.037786
+        4->5	    0.000000	    0.373608	         NaN	    0.038824
+        5->6	    9.939109	    0.371940	         NaN	         NaN
+        6->7	    4.232656	         NaN	         NaN	         NaN
+        7->8	    4.232154	         NaN	         NaN	         NaN
+    
+    Returns a full random value table for all composite methods at 7->8 basis, 
+	where NaNs where substituted with random walk estimates of extrapolated values.
+        2->3	    0.000000	    0.000000	    0.041282	    0.038259
+        3->4	    0.000000	    0.624616	    0.043507	    0.037786
+        4->5	    0.000000	    0.373608	    0.044061	    0.038824
+        5->6	    9.939109	    0.371940	    0.044484        0.039098
+        6->7	    4.232656	    0.373101        0.044431        0.038957	
+        7->8	    4.232154	    0.372179        0.044472        0.038874
+
     """
 
     sample = [row[1:] for row in extrapolants_table]
@@ -25,6 +42,7 @@ def generate_sample(extrapolants_table,n_samples):
         return sample
 
     num_cols = len(sample[0])
+    # create a new rng for each process
     rng = np.random.default_rng()
     rng_samples = rng.uniform(0,1,min(n_samples*num_cols*num_rows,1024**2))
 
@@ -33,28 +51,28 @@ def generate_sample(extrapolants_table,n_samples):
     samples = []
     for j in range(n_samples):
         sample = [row[1:] for row in extrapolants_table]
-        # Move along each column, skipping the first (index 0, which holds the labels)
+        # move along each column, skipping the first (index 0, which holds the labels)
         for col in range(num_cols):
             for row in range(num_rows):
 
-                # Check if the current value is missing (NaN)
+                # check if the current value is missing (NaN)
                 if np.isnan(sample[row][col]):
 
-                    # We need at least two values immediately above it
+                    # we need at least two values immediately above Nan
                     if row >= 2:
                         e_x = sample[row-1][col]
                         e_x_prev = sample[row-2][col]
 
-                        # Ensure the two values above are valid numbers
+                        # ensure the two values above are valid numbers
                         if not np.isnan(e_x) and not np.isnan(e_x_prev):
-                            # Calculate the bounding interval spread
+                            # calculate the bounding interval spread
                             spread = abs(e_x - e_x_prev)
 
-                            # Draw a uniform random variable in the interval
+                            # draw a uniform random variable in the interval
                             # random.uniform(a, b) includes all real floats between a and b
                             new_val = (e_x - spread) + 2*spread*rng_samples[_i]
 
-                            # Replace the NaN with the generated step
+                            # replace the NaN with the generated step
                             sample[row][col] = new_val
                             _i += 1
                             if _i >= rng_samples.size:
@@ -69,26 +87,28 @@ def best_estimate(extrapolants_table):
     """
     Finds the extrapolant with the largest X (the last non-NaN value)
     in each energy column, and returns their sum.
+
+	Returns the best estimate and its contributions.
     """
     if not extrapolants_table:
-        return 0.0
+        raise RuntimeError("Missing extrapolants table")
 
     num_cols = len(extrapolants_table[0])
     best_values = []
-
-    # Iterate through each energy column (skipping column 0)
+    second_best = [] 
+    # iterate through each energy column (skipping column 0)
     for col in range(1, num_cols):
 
-        # Read the column backwards: from the last row up to the first row
+        # read the column backwards: from the last row up to the first row
         for row in range(len(extrapolants_table) - 1, -1, -1):
             val = extrapolants_table[row][col]
 
             if not np.isnan(val):
                 best_values.append(val)
-                break  # We found the largest valid X, so break out of the row loop
+                second_best.append(extrapolants_table[row-1][col])
+                break  # the largest valid X found, so break out of the row loop
 
-    # Sum the collected best estimates using high-precision fsum
-    return math.fsum(best_values), best_values
+    return math.fsum(best_values), [best_values,second_best]
 
 def sum_rows(sample_table):
     """
@@ -117,7 +137,7 @@ def build_positive_bins(pdf, bin_width, x0, xl):
     analytical_mask = (left_edges <= pdf.analytical_y0)
 
     left_anal, right_anal = left_edges[analytical_mask], right_edges[analytical_mask]
-    integrals[analytical_mask] = pdf.analytical_integration(left_anal,right_anal) #do analytical now it is \int -ln(x) as placeholder
+    integrals[analytical_mask] = pdf.analytical_integration(left_anal,right_anal) 
     if (analytical_mask.sum() < 5):
         print("Number of analytical bins",analytical_mask.sum(),list(zip(left_anal,right_anal)))
     else:
@@ -127,8 +147,8 @@ def build_positive_bins(pdf, bin_width, x0, xl):
     left_num, right_num = left_edges[numerical_mask], right_edges[numerical_mask]
     integrals[numerical_mask] = pdf.cdf(right_num) - pdf.cdf(left_num)
     print(f"Number of numerical bins {numerical_mask.sum():,}")
-    
-    return mids, integrals, analytical_mask, left_edges, right_edges
+   
+    return mids, integrals, analytical_mask
 
 def generate_bins(pdf, bin_width, centered=False):
     """
@@ -152,7 +172,7 @@ def generate_bins(pdf, bin_width, centered=False):
         N_bins = int(np.ceil((xl-x0) / bin_width))
         print(f"Compressing PDF to CENTERED histogram on range [{-xl},{xl}] with {bin_width:g} width -> {2*N_bins+1:,} bins")
  
-    pos_mids, pos_integrals, analytical_mask, left_edges, right_edges = build_positive_bins(pdf, bin_width, x0, xl)
+    pos_mids, pos_integrals, analytical_mask = build_positive_bins(pdf, bin_width, x0, xl)
     numerical_mask = ~analytical_mask 
  
     if centered:
@@ -161,13 +181,14 @@ def generate_bins(pdf, bin_width, centered=False):
         mids = np.concatenate(([0.0], pos_mids))
         integrals = np.concatenate(([center_bin / 2.0], pos_integrals))
         numerical_mask = np.concatenate(([False],numerical_mask))
+        analytical_mask = np.concatenate(([True],analytical_mask))
         print("\nBinning summary (centered)")
         print(f" Final size of binned grid is {integrals.size*2-1:,d} including both halves (one shared center bin)")
         print(f" Center bin: frequency={center_bin:.5e}")
         print(f" Number of numerical grids is {mids[numerical_mask].size*2:,d}")
         print(f" Mids of numerical grid go from {-mids[numerical_mask][::-1][0]:.3e} to {-mids[numerical_mask][::-1][-1]:.3e} and from {mids[numerical_mask][0]:.3e} to {mids[numerical_mask][-1]:.3e}")
         print(f" Number of analytical grids is {mids[~numerical_mask].size*2-1:,d}")
-        print(f" Mids of analytical grid go from {-mids[~numerical_mask][::-1][0]:.3e} to {-mids[~numerical_mask][::-1][-1]:.3e} and from {mids[~numerical_mask][0]:.3e} to {mids[~numerical_mask][-1]:.3e}")
+        print(f" Mids of analytical grid go from {-mids[analytical_mask][::-1][0]:.3e} to {-mids[analytical_mask][::-1][-1]:.3e} and from {mids[analytical_mask][0]:.3e} to {mids[analytical_mask][-1]:.3e}")
 
     else:
         mids, integrals = pos_mids, pos_integrals
@@ -180,7 +201,7 @@ def generate_bins(pdf, bin_width, centered=False):
     print_memory_usage("Currently used")
     print_time(_start_time,'Binning')
  
-    return (mids, integrals), (None,None)
+    return mids, integrals
 
 def estimate_bulk_size(max_mem, N_samples, N_bas, N_method, mids_size, n_batch_array = 6):
     """
@@ -204,7 +225,7 @@ def estimate_bulk_size(max_mem, N_samples, N_bas, N_method, mids_size, n_batch_a
 
 class StreamingStats:
     """
-    Class collecting distribution across all samples.
+    Class collecting distribution across all samples in a form of global histogram
     Calculates the average across all samples, together with uncertainties
     """
     def __init__(self, bin_width=1e-6, baseline=1):
@@ -290,10 +311,10 @@ class StreamingStats:
 
         with open(filename, 'w', newline='') as f:
             writer = csv.writer(f)
-            # Write headers
+            # write headers
             writer.writerow(['Bin_Center', 'Frequency'])
 
-            # Sort the bins so the data is ordered logically from low to high energy
+            # sort the bins so the data is ordered logically from low to high energy
             sorted_bins = sorted(self.counts.keys())
             for b in sorted_bins:
                 if self.left_edges is not None:
@@ -305,7 +326,8 @@ class StreamingStats:
 
         print(f"[*] Histogram data saved to: {filename}")
 
-def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confidence_levels = [0.75,0.95,0.99], batch_mem = None, N_cpu = 10, baseline = 1, centered = False, constant = 0, **kwargs):
+# main function to run uncertainty estimation in composite schemes. 
+def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confidence_levels = [0.75,0.95,0.99], batch_mem = None, N_cpu = 1, baseline = 1, centered = False, constant = 0, **kwargs):
     """
     Method to run the composite random walk
 
@@ -341,7 +363,9 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
             self.N_cpu = N_cpu
             self.baseline = baseline
             self.centered = centered
-            self.constant = constant            
+            self.constant = constant           
+            assert self.N_samples >= self.N_cpu 
+
         def __str__(self):
             """
             Return string of user settings.
@@ -366,11 +390,17 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
             return string
 
     args = settings(extrapolants, N_samples, bin_width, confidence_levels, batch_mem, N_cpu, baseline, centered, constant)
-
+    print(r"_________                                    .__  __             ____ ___                           __         .__        __             ___________         __  .__                __                 ")  
+    print(r"\_   ___ \  ____   _____ ______   ____  _____|__|/  |_  ____    |    |   \____   ____  ____________/  |______  |__| _____/  |_ ___.__.   \_   _____/ _______/  |_|__| _____ _____ _/  |_  ___________  ")
+    print(r"/    \  \/ /  _ \ /     \\____ \ /  _ \/  ___/  \   __\/ __ \   |    |   /    \_/ ___\/ __ \_  __ \   __\__  \ |  |/    \   __<   |  |    |    __)_ /  ___/\   __\  |/     \\__  \\   __\/  _ \_  __ \ ")
+    print(r"\     \___(  <_> )  Y Y  \  |_> >  <_> )___ \|  ||  | \  ___/   |    |  /   |  \  \__\  ___/|  | \/|  |  / __ \|  |   |  \  |  \___  |    |        \\___ \  |  | |  |  Y Y  \/ __ \|  | (  <_> )  | \/ ")
+    print(r" \______  /\____/|__|_|  /   __/ \____/____  >__||__|  \___  >  |______/|___|  /\___  >___  >__|   |__| (____  /__|___|  /__|  / ____|   /_______  /____  > |__| |__|__|_|  (____  /__|  \____/|__|    ")
+    print(r"        \/             \/|__|              \/              \/                \/     \/    \/                 \/        \/      \/                \/     \/                \/     \/                    ") 
     # print user settings
     print(args)
 
-    headers_ext = [f"{'ext'}"] + [f"col{i}" for i in range(len(extrapolants[0])-1)]
+    print("\n==== Master extrapolant table ====\n")
+    headers_ext = [f"{'(X-1,X)'}"] + [f"extr{i}" for i in range(len(extrapolants[0])-1)]
     print_table(extrapolants, headers_ext)
 
     start_time = time.perf_counter() # start total execution timer
@@ -380,7 +410,7 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
 
     # prepare the middle bin depending if we have centered or non centered variant
     midbin = 0
-    (mids,integrals),_ = generate_bins(pdf,ref_bin_width, centered = args.centered)
+    mids,integrals = generate_bins(pdf,ref_bin_width, centered = args.centered)
     if args.centered:
         midbin = 1
 
@@ -389,11 +419,11 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
     stats_tracker = StreamingStats(args.bin_width, baseline=args.baseline ) # set up StreamingStats class
 
     N_samples = args.N_samples
-    total_iterations = N_samples * 2 * mids.size
+    total_iterations = N_samples * (2 * mids.size - midbin)
 
-    print(f"\n--- Running MEMORY-OPTIMIZED Nested Monte Carlo ---")
-    print(f"Generating {N_samples:,} patched tables...")
-    print(f"Running {2 * mids.size:,} bins per table (Total: {total_iterations:,} limit projections)")
+    print(f"\n--- Running composite random walk ---")
+    print(f"Generating {N_samples:,} random walk tables...")
+    print(f"Running {2 * mids.size - midbin:,} bins per table (Total: {total_iterations:,} limit projections)")
 
     # get basic extrapolation information (how many basis were used, how many composite methods we have)
     N_bas, N_method = np.asarray(extrapolants).shape
@@ -418,10 +448,9 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
     print_memory_usage("Currently used")
     print_time(_start_time,'Composite sampling')
 
-
     # estimate the size of batched bulk and number of batches required
-    bulk_batches, bulk_size = estimate_bulk_size(args.batch_mem, N_samples, N_bas, N_method, 2*mids.size - int(centered), 6) 
-    estimate_peak_memory(N_samples, N_bas, N_method, 2*mids.size - int(centered), bulk_size, bulk_batches, 6)
+    bulk_batches, bulk_size = estimate_bulk_size(args.batch_mem, N_samples, N_bas, N_method, 2*mids.size - midbin, 6) 
+    estimate_peak_memory(N_samples, N_bas, N_method, 2*mids.size - midbin, bulk_size, bulk_batches, 6)
     d = str(int(np.log10(N_samples)))+"d"
     d0 = str(int(np.log10(bulk_batches)))+"d"
 

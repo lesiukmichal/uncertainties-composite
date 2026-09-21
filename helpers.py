@@ -12,13 +12,13 @@ def print_time(_start_time,msg="",end='\n'):
     if elapsed_seconds > 60:
         minutes = int(elapsed_seconds // 60)
         seconds = elapsed_seconds % 60
-        print(f"'{prefix}'execution time: {minutes}m {seconds:.0f}s",end=end)
+        print(f"{prefix}execution time: {minutes}m {seconds:.0f}s",end=end)
     elif elapsed_seconds > 10:
-        print(f"'{prefix}'execution time: {elapsed_seconds:.1f} seconds",end=end)
+        print(f"{prefix}execution time: {elapsed_seconds:.1f} seconds",end=end)
     elif elapsed_seconds > 1:
-        print(f"'{prefix}'execution time: {elapsed_seconds:.2f} seconds",end=end)
+        print(f"{prefix}execution time: {elapsed_seconds:.2f} seconds",end=end)
     else:
-        print(f"'{prefix}'execution time: {elapsed_seconds:.3f} seconds",end=end)
+        print(f"{prefix}execution time: {elapsed_seconds:.3f} seconds",end=end)
 
 def print_table(table, headers=None):
     """Helper function to print a clean, aligned table."""
@@ -71,7 +71,7 @@ def print_memory_usage(msg="",just_return=False):
     proc_mb = psutil.Process().memory_info().rss / 1024**2
     vm = psutil.virtual_memory()
     prefix = f"{msg}: " if msg else ""
-    outmsg =  f"{prefix}Process memory: {proc_mb:8.0f} MB  (system RAM in use: {vm.percent:4.1f}%)"
+    outmsg =  f"{prefix} {proc_mb:8.0f} MB  (system RAM in use: {vm.percent:4.1f}%)"
     
     if not just_return:
         print(outmsg)
