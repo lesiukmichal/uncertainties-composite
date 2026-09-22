@@ -1,5 +1,6 @@
-![](toc2.png?raw=Uncertainty prediction in composite quantum chemistry approaches")
-
+<p align="center">
+  <img src="toc2.png?raw=true" alt="Table Of Content"/>
+</p>
 <h1>Uncertainty prediction in composite quantum chemistry approaches</h1>
 
 This repository contains a PYTHON implementation of a method of estimating the uncertainty of a result obtained through extrapolation to the complete basis set limit for composite quantum chemical approaches.
