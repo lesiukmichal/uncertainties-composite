@@ -1,24 +1,5 @@
 ![](toc2.png?raw=Uncertainty prediction in composite quantum chemistry approaches")
 
-      _________                                    .__  __
-      \_   ___ \  ____   _____ ______   ____  _____|__|/  |_  ____   
-      /    \  \/ /  _ \ /     \\____ \ /  _ \/  ___/  \   __\/ __ \  
-      \     \___(  <_> )  Y Y  \  |_> >  <_> )___ \|  ||  | \  ___/  
-       \______  /\____/|__|_|  /   __/ \____/____  >__||__|  \___  > 
-              \/             \/|__|              \/              \/
-       ____ ___                           __         .__        __           
-      |    |   \____   ____  ____________/  |______  |__| _____/  |_ ___.__.   
-      |    |   /    \_/ ___\/ __ \_  __ \   __\__  \ |  |/    \   __<   |  |   
-      |    |  /   |  \  \__\  ___/|  | \/|  |  / __ \|  |   |  \  |  \___  |  
-      |______/|___|  /\___  >___  >__|   |__| (____  /__|___|  /__|  / ____| 
-                   \/     \/    \/                 \/        \/      \/                   
-       ___________         __  .__                __                 
-       \_   _____/ _______/  |_|__| _____ _____ _/  |_  ___________  
-        |    __)_ /  ___/\   __\  |/     \\__  \\   __\/  _ \_  __ \ 
-        |        \\___ \  |  | |  |  Y Y  \/ __ \|  | (  <_> )  | \/ 
-       /_______  /____  > |__| |__|__|_|  (____  /__|  \____/|__|    
-               \/     \/                \/     \/                    
-
 <h1>Uncertainty prediction in composite quantum chemistry approaches</h1>
 
 This repository contains a PYTHON implementation of a method of estimating the uncertainty of a result obtained through extrapolation to the complete basis set limit for composite quantum chemical approaches.
@@ -36,7 +17,7 @@ An example of input file is:<br><br>
              &emsp;4 &emsp;   5.132946242&emsp; 	-0.7954372818<br>
              &emsp;5 &emsp;   5.329771198&emsp;     nan      <br>
 
-with each line containing a list of (<i>X, e<sub>0 </sub>, e<sub>1 </sub>, e<sub>2 </sub>, ...</i>), where <i>X</i> is a cardinal number of basis and <i>e<sub>i </sub></i> are particular components of the composite method to be extrapolated. Missing data for higher basis sets can be either a literal "nan" string or empty.
+with each line containing a list of (<i>X, e<sub>0 </sub>, e<sub>1 </sub>, e<sub>2 </sub>, ...</i>), where <i>X</i> is a cardinal number of basis and <i>e<sub>i </sub></i> are particular components of the composite method to be extrapolated. Missing data for higher basis sets can be either a string or empty.
 
 <b>As a script</b>
 
@@ -75,7 +56,7 @@ stats_tracker = **run_random_walk**(pdf, extrapolants, N_samples=1_000_000, bin_
 
 ````
 
-Example files are `water.dat`, and `n2.dat` which contain necessary data to reproduce results in section IV. 
+Example files are `water.dat`, and `n2.dat` which contain necessary data to reproduce results in section IV. Results should be the same within some stochastic noise on the last digit.
 
 File `merged_data.csv` contains the numerical integration results for Eq. (5) from 0.01 to 6.2. 
 

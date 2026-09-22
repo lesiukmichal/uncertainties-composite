@@ -150,11 +150,9 @@ def build_positive_bins(pdf, bin_width, x0, xl):
    
     return mids, integrals, analytical_mask
 
-def generate_bins(pdf, bin_width, centered=False):
+def generate_bins(pdf, bin_width):
     """
     Bins the probability distribution to bins with bin width equal to bin_width. 
-    If centered is True will center distribution on single middle bin, 
-    otherwise will create positive sided bins starting at zero and mirroring it on other half.
 
     Returns a final list of bin mids, list of integrals of pdf between two ends of bins,
     """
@@ -162,42 +160,28 @@ def generate_bins(pdf, bin_width, centered=False):
     _start_time = time.perf_counter()
 
     print("")
-    if not centered:
-        x0 = 0.0
-        N_bins = int(np.ceil((xl-x0) / bin_width))
-        print(f"Compressing PDF to histogram on range [{x0},{xl}] with {bin_width:g} width -> {N_bins:,} bins")
-    else:
-        half = bin_width / 2.0
-        x0 = half
-        N_bins = int(np.ceil((xl-x0) / bin_width))
-        print(f"Compressing PDF to CENTERED histogram on range [{-xl},{xl}] with {bin_width:g} width -> {2*N_bins+1:,} bins")
+    half = bin_width / 2.0
+    x0 = half
+    N_bins = int(np.ceil((xl-x0) / bin_width))
+    print(f"Compressing PDF to CENTERED histogram on range [{-xl},{xl}] with {bin_width:g} width -> {2*N_bins+1:,} bins")
  
     pos_mids, pos_integrals, analytical_mask = build_positive_bins(pdf, bin_width, x0, xl)
     numerical_mask = ~analytical_mask 
  
-    if centered:
-        center_bin = 2.0 * pdf.analytical_integration(0.0, half)
- 
-        mids = np.concatenate(([0.0], pos_mids))
-        integrals = np.concatenate(([center_bin / 2.0], pos_integrals))
-        numerical_mask = np.concatenate(([False],numerical_mask))
-        analytical_mask = np.concatenate(([True],analytical_mask))
-        print("\nBinning summary (centered)")
-        print(f" Final size of binned grid is {integrals.size*2-1:,d} including both halves (one shared center bin)")
-        print(f" Center bin: frequency={center_bin:.5e}")
-        print(f" Number of numerical grids is {mids[numerical_mask].size*2:,d}")
-        print(f" Mids of numerical grid go from {-mids[numerical_mask][::-1][0]:.3e} to {-mids[numerical_mask][::-1][-1]:.3e} and from {mids[numerical_mask][0]:.3e} to {mids[numerical_mask][-1]:.3e}")
-        print(f" Number of analytical grids is {mids[~numerical_mask].size*2-1:,d}")
-        print(f" Mids of analytical grid go from {-mids[analytical_mask][::-1][0]:.3e} to {-mids[analytical_mask][::-1][-1]:.3e} and from {mids[analytical_mask][0]:.3e} to {mids[analytical_mask][-1]:.3e}")
+    center_bin = 2.0 * pdf.analytical_integration(0.0, half)
 
-    else:
-        mids, integrals = pos_mids, pos_integrals
-        print("\nBinning summary")
-        print(f" Final size of binned grid is {integrals.size*2:,d} including both halves")
-        print(f" Number of numerical grids is {mids[numerical_mask].size*2:,d}")
-        print(f" Mids of numerical grid go from {-mids[numerical_mask][::-1][0]:.3e} to {-mids[numerical_mask][::-1][-1]:.3e} and from {mids[numerical_mask][0]:.3e} to {mids[numerical_mask][-1]:.3e}")
-        print(f" Number of analytical grids is {mids[~numerical_mask].size*2:,d}")
-        print(f" Mids of analytical grid go from {-mids[~numerical_mask][::-1][0]:.3e} to {-mids[~numerical_mask][::-1][-1]:.3e} and from {mids[~numerical_mask][0]:.3e} to {mids[~numerical_mask][-1]:.3e}")
+    mids = np.concatenate(([0.0], pos_mids))
+    integrals = np.concatenate(([center_bin / 2.0], pos_integrals))
+    numerical_mask = np.concatenate(([False],numerical_mask))
+    analytical_mask = np.concatenate(([True],analytical_mask))
+    print("\nBinning summary (centered)")
+    print(f" Final size of binned grid is {integrals.size*2-1:,d} including both halves (one shared center bin)")
+    print(f" Center bin: frequency={center_bin:.5e}")
+    print(f" Number of numerical grids is {mids[numerical_mask].size*2:,d}")
+    print(f" Mids of numerical grid go from {-mids[numerical_mask][::-1][0]:.3e} to {-mids[numerical_mask][::-1][-1]:.3e} and from {mids[numerical_mask][0]:.3e} to {mids[numerical_mask][-1]:.3e}")
+    print(f" Number of analytical grids is {mids[~numerical_mask].size*2-1:,d}")
+    print(f" Mids of analytical grid go from {-mids[analytical_mask][::-1][0]:.3e} to {-mids[analytical_mask][::-1][-1]:.3e} and from {mids[analytical_mask][0]:.3e} to {mids[analytical_mask][-1]:.3e}")
+
     print_memory_usage("Currently used")
     print_time(_start_time,'Binning')
  
@@ -317,17 +301,14 @@ class StreamingStats:
             # sort the bins so the data is ordered logically from low to high energy
             sorted_bins = sorted(self.counts.keys())
             for b in sorted_bins:
-                if self.left_edges is not None:
-                    center = ( self.left_edges[i] + self.right_edges[i] ) / 2 
-                else:
-                    center = (b + 0.5) * self.bin_width * self.baseline
+                center = (b + 0.5) * self.bin_width * self.baseline
                 count = self.counts[b]
                 writer.writerow([f"{center:.8f}", count])
 
         print(f"[*] Histogram data saved to: {filename}")
 
 # main function to run uncertainty estimation in composite schemes. 
-def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confidence_levels = [0.75,0.95,0.99], batch_mem = None, N_cpu = 1, baseline = 1, centered = False, constant = 0, **kwargs):
+def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confidence_levels = [0.75,0.95,0.99], batch_mem = None, N_cpu = 1, baseline = 1, constant = 0, **kwargs):
     """
     Method to run the composite random walk
 
@@ -343,7 +324,6 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
     batch_mem        : (int) Maximum allowed memory in MB which can be used during estimation run. Default is unrestricted run.
     N_cpu            : (int) Number of processes used to generate sample table. Default is 10.
     baseline         : (float) Number used to renormalize the data to keep the bin_width roughly equal to relative error in final uncertainty.
-    centered         : (bool) Whether the pdf histogram is centered around single bin with middle at zero or histogram is just mirrored around zero with first bin starting at zero 
                               and middle of the bin being at bin_width/2. Default is False (mirrored histogram)
     constant         : (float) Constant float to move the distribution for the final printing. Usefull if for example one has SCF energy already at CBS levels and needs to estimate uncertainty 
                                post HF contributions.
@@ -354,7 +334,7 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
         Class for user defined settings required to run calculation.
         See definition of particular variables in parent function.
         """
-        def __init__(self, extrapolants, N_samples, bin_width, confidence_levels, batch_mem, N_cpu, baseline, centered = False, constant = 0):
+        def __init__(self, extrapolants, N_samples, bin_width, confidence_levels, batch_mem, N_cpu, baseline, constant = 0):
             
             self.N_samples = N_samples
             self.bin_width = bin_width
@@ -362,7 +342,6 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
             self.batch_mem = batch_mem
             self.N_cpu = N_cpu
             self.baseline = baseline
-            self.centered = centered
             self.constant = constant           
             assert self.N_samples >= self.N_cpu 
 
@@ -381,21 +360,13 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
                 string += f"Will do batches to keep memory usage under {int(self.batch_mem):d} MB\n"
             string += f"Renormalization with {self.baseline}\n"
             string += f"Constant value added to the average is {self.constant}\n"
-            if self.centered:       
-                string += f"PDF will be centered with single bin\n"
             string += f"Sample generation will run on {self.N_cpu} core\n"
             string += "+"*80
             string += "\n\n"
                 
             return string
 
-    args = settings(extrapolants, N_samples, bin_width, confidence_levels, batch_mem, N_cpu, baseline, centered, constant)
-    print(r"_________                                    .__  __             ____ ___                           __         .__        __             ___________         __  .__                __                 ")  
-    print(r"\_   ___ \  ____   _____ ______   ____  _____|__|/  |_  ____    |    |   \____   ____  ____________/  |______  |__| _____/  |_ ___.__.   \_   _____/ _______/  |_|__| _____ _____ _/  |_  ___________  ")
-    print(r"/    \  \/ /  _ \ /     \\____ \ /  _ \/  ___/  \   __\/ __ \   |    |   /    \_/ ___\/ __ \_  __ \   __\__  \ |  |/    \   __<   |  |    |    __)_ /  ___/\   __\  |/     \\__  \\   __\/  _ \_  __ \ ")
-    print(r"\     \___(  <_> )  Y Y  \  |_> >  <_> )___ \|  ||  | \  ___/   |    |  /   |  \  \__\  ___/|  | \/|  |  / __ \|  |   |  \  |  \___  |    |        \\___ \  |  | |  |  Y Y  \/ __ \|  | (  <_> )  | \/ ")
-    print(r" \______  /\____/|__|_|  /   __/ \____/____  >__||__|  \___  >  |______/|___|  /\___  >___  >__|   |__| (____  /__|___|  /__|  / ____|   /_______  /____  > |__| |__|__|_|  (____  /__|  \____/|__|    ")
-    print(r"        \/             \/|__|              \/              \/                \/     \/    \/                 \/        \/      \/                \/     \/                \/     \/                    ") 
+    args = settings(extrapolants, N_samples, bin_width, confidence_levels, batch_mem, N_cpu, baseline, constant)
     # print user settings
     print(args)
 
@@ -408,11 +379,8 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
     # set up internal bin_width for pdf histogram. The final result will be calculated with the user specified value.
     ref_bin_width = args.bin_width / 10
 
-    # prepare the middle bin depending if we have centered or non centered variant
-    midbin = 0
-    mids,integrals = generate_bins(pdf,ref_bin_width, centered = args.centered)
-    if args.centered:
-        midbin = 1
+    midbin = 1 # do not mirror middle bin
+    mids,integrals = generate_bins(pdf,ref_bin_width)
 
 
     baseline_sum,_ = best_estimate(extrapolants) # calculated the final value of extrapolation
@@ -514,4 +482,69 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
     return stats_tracker
 
 
+if __name__ == "__main__":
+    """
+    Method to run the composite random walk
+
+    Parameters
+    ----------
+    filename  : (str) path to the file containing data to be extrapolated and their uncertainty estimated
+    N_samples : (int) Number of random samples for which we run the uncertainty estimation.  Has to be larger than 0.
+                      Default is 100 000. For production run at least 1 000 000 of samples should be used.
+                      bin_width : (float) Bin width of the final histogram across all samples. Roughly translates to relative error in uncertainty estimation. Default values is 0.0001.
+    levels    : (list) List of floats at which level final uncertainty is printed.
+    mem       : (int) Maximum allowed memory in MB which can be used during estimation run. Default is unrestricted run.
+    N_cpu     : (int) Number of processes used to generate sample table. Default is 10.
+    graph     : Whether to save a graph of the final histogram
+    csv       : Whether to save a csv file of the final histogram
+    """
+
+    import argparse
+    import numpy as np 
+
+    from helpers import plot_binned_histogram 
+    from parse_distribution import load_and_interpolate
+    from extrapolate_data import preprocess_extrapolants
+    from random_walk_composite import run_random_walk, best_estimate
+
+    # parse user defined arguments
+    parser = argparse.ArgumentParser(description="Read data and calculate CBS extrapolations.")
+    parser.add_argument("filename", type=str, help="The name or path of the file to read")
+    parser.add_argument("--N_samples", type=int, default=100_000, help="Number of Monte Carlo patched tables")
+    parser.add_argument("--bin_width", type=float, default=1e-4, help="Width of histogram bins in units of data")
+    parser.add_argument("--levels", nargs="+", type=float, default=[0.75,0.95,0.99], help="At what confidence levels is uncertainty to be printed")
+    parser.add_argument("--mem", type=int, default=None, help="Maximum allowed memory in MB to be used for each batch of processed data. If not set, everything is done in one batch. ")
+    parser.add_argument("--N_cpu", type=int, default=1, help="Number of processes to be run when generating Monte Carlo patched tables")
+    parser.add_argument("--graph", action='store_true', default=False, help="Whether to save a graph of the final histogram")
+    parser.add_argument("--csv", action='store_true', default=False, help="Whether to save a CSV file of the final histogram")
+    args, unknown = parser.parse_known_args()
+
+
+    pdf = load_and_interpolate("merged_data.csv")
+
+    extrapolants,original_data =  preprocess_extrapolants(args.filename)
+    extr_val, extr_vals = best_estimate(extrapolants)
+    print(f" Extrapolated value {extr_val:.6f}")
+
+    baseline = np.sum(extr_vals[0]) - np.sum(extr_vals[1])
+
+    stats_tracker = run_random_walk(pdf, extrapolants, args.N_samples, args.bin_width, args.levels, args.mem, args.N_cpu, baseline)
+
+    if args.csv or args.graph:
+        print("\n--- EXPORTING RESULTS ---")
+        base_name = args.filename 
+
+    if args.csv:
+        csv_out_file = f"{base_name}_histogram_data.csv"
+        stats_tracker.export_to_csv(csv_out_file)
+
+    if args.graph:
+        plot_out_file = f"{base_name}_histogram_plot.png"
+        plot_binned_histogram(
+            stats_tracker,
+            filename=plot_out_file,
+            title=f"Random Walk Limit Distribution",
+            xlabel="Estimated quantity",
+            ylabel="Frequency"
+        )
 

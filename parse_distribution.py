@@ -57,7 +57,7 @@ class interpolatedPDF():
             if np.any(x) < 0:
                 raise Exception("Negative X in analytical integration") 
             x_safe = np.where(x > 0, x, 1.0)
-            log_x = np.where(x > 0, np.log(x_safe), 0.0)
+            log_x = np.where(x > 0, np.log(x_safe), 0.0) 
             return (_A + _C) * x - (_B + _D / 3) / 3 * x**3 - _C * x * log_x + (_D / 3) * x**3 * log_x
 
         res = F(right_anal) - F(left_anal)
@@ -161,7 +161,7 @@ def load_and_interpolate(filename):
     # check if the normalization of half of pdf is equal ot 0.5. 
     print(f"Numerical norm from {analytical_x:.3e} to {xl:.3e}  is {numl_norm:.5e}")
     print(f"Analytical integral from 0 to {analytical_x:.3e}     is {anal_norm:.5e}")
-    print(f"Total norm from {x0:.3e} to {xl:.3e}      is {full_norm:.5e}")
+    print(f"Total norm from 0 to {xl:.3e}              is {full_norm:.5e}")
     assert np.isclose(full_norm,0.5)
 
     print_time(start_time, "Interpolatng distribution")
