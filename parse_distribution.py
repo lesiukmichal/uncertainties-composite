@@ -54,7 +54,7 @@ class interpolatedPDF():
         """ Calculate integral values of bin in analytical region. """
         def F(x):      
             """ Get analytical integral of pdf at x """
-            if np.any(x) < 0:
+            if np.any(x < 0):
                 raise Exception("Negative X in analytical integration") 
             x_safe = np.where(x > 0, x, 1.0)
             log_x = np.where(x > 0, np.log(x_safe), 0.0) 
@@ -117,7 +117,7 @@ def check_data(x, y):
     print("\n=== MONOTONICITY ===")
     positive_slope_mask = dy/dx > 1e-12
     if np.any(positive_slope_mask):
-        idx_max_pos_slope = np.argmax(dy)
+        idx_max_pos_slope = np.argmax(dy/dx)
         max_pos_slope = dy[idx_max_pos_slope]
         print(f"  MONOTONICITY IN DATA POINTS VIOLATED: Max positive slope = {max_pos_slope:.3e} at x={x[idx_max_pos_slope]}")
         for i in np.where(positive_slope_mask)[0]:

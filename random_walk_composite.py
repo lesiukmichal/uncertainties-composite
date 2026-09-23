@@ -1,3 +1,4 @@
+import csv
 import math
 import time
 import psutil
@@ -105,7 +106,8 @@ def best_estimate(extrapolants_table):
 
             if not np.isnan(val):
                 best_values.append(val)
-                second_best.append(extrapolants_table[row-1][col])
+                if row > 0:
+                    second_best.append(extrapolants_table[row-1][col])
                 break  # the largest valid X found, so break out of the row loop
 
     return math.fsum(best_values), [best_values,second_best]
@@ -171,7 +173,7 @@ def generate_bins(pdf, bin_width):
     center_bin = 2.0 * pdf.analytical_integration(0.0, half)
 
     mids = np.concatenate(([0.0], pos_mids))
-    integrals = np.concatenate(([center_bin / 2.0], pos_integrals))
+    integrals = np.concatenate(([center_bin], pos_integrals))
     numerical_mask = np.concatenate(([False],numerical_mask))
     analytical_mask = np.concatenate(([True],analytical_mask))
     print("\nBinning summary (centered)")
@@ -200,6 +202,8 @@ def estimate_bulk_size(max_mem, N_samples, N_bas, N_method, mids_size, n_batch_a
     max_mem_size = max_mem * 1024**2
     sample_size = N_samples * N_bas * N_method * 8
     free_memory = max_mem_size - psutil.Process().memory_info().rss 
+    if free_memory <= 0:
+        raise RuntimeError("Not enough memory available")
     per_sample_batch = mids_size * 8 * n_batch_array 
     bulk_size = int(free_memory // per_sample_batch ) 
     bulk_batches = int(np.ceil(N_samples/bulk_size))
@@ -410,6 +414,8 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
         current_samples = np.asarray([row[1:] for row in extrapolants]).reshape(1,-1,1)
     else:
         N_CPU = args.N_cpu
+        if N_samples % N_CPU != 0:
+            raise RuntimeError("Number of samples has to be divisible by number of used CPU cores for generating sample tables")
         pal_random = partial(generate_sample, (extrapolants)) # prepare the datapack for partial function
         with Pool(N_CPU) as pool:
             current_samples = np.asarray(pool.map(pal_random,[N_samples//N_CPU]*N_CPU)).reshape((N_samples,N_bas,N_method))
@@ -459,7 +465,7 @@ def run_random_walk(pdf, extrapolants, N_samples=100_000, bin_width=1e-4, confid
             print(f" Total execution time: {elapsed_seconds:.2f} seconds")
 
     # get average from the final histogram, should be almost exactly the same as value taken from table of extrapolants
-    average = stats_tracker.get_average()
+    average = stats_tracker.get_average(args.constant)
 
     print(f"\n- Best estimate (deterministic): {baseline_sum:.6f}")
     print(f"- Best estimate (stochastic)   : {average:.6f}\n")
@@ -525,8 +531,6 @@ if __name__ == "__main__":
     extrapolants,original_data =  preprocess_extrapolants(args.filename)
     extr_val, extr_vals = best_estimate(extrapolants)
     print(f" Extrapolated value {extr_val:.6f}")
-
-    baseline = np.sum(extr_vals[0]) - np.sum(extr_vals[1])
 
     stats_tracker = run_random_walk(pdf, extrapolants, args.N_samples, args.bin_width, args.levels, args.mem, args.N_cpu, baseline)
 

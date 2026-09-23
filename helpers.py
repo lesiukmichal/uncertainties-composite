@@ -58,10 +58,8 @@ def plot_binned_histogram(stats_tracker, filename, title="Data Distribution", xl
     plt.grid(axis='y', linestyle='--', alpha=0.6)
     plt.tight_layout()
 
-    # --- CHANGED: Save instead of show ---
     plt.savefig(filename, dpi=300)
-    # plt.show()
-    plt.close() # Free up the memory
+    plt.close() 
     print(f"[*] Histogram plot saved to: {filename}")
 
 def print_memory_usage(msg="",just_return=False):
